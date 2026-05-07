@@ -1,0 +1,30 @@
+# GitHub RAG app
+# Python 3.10+
+
+# Environment
+python-dotenv>=1.0.0
+
+# GitHub API (public repos; use token for higher rate limits)
+PyGithub>=2.1.0
+requests>=2.31.0
+
+# Vector DB (Milvus / Zilliz Cloud)
+pymilvus>=2.4.0
+
+# OpenAI (embeddings for RAG)
+openai>=1.0.0
+tiktoken>=0.6.0
+
+# Optional: async / progress
+tqdm>=4.66.0
+
+# API server (local; deployment in phase 3)
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Vercel serverless (ASGI adapter)
+mangum>=0.17.0
+
+# Tests (CI + local)
+pytest>=7.4.0
+httpx>=0.25.0
