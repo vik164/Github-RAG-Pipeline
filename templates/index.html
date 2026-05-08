@@ -1,0 +1,262 @@
+<!-- Chat UI: simple frontend for sending prompts to /chat and viewing answers/sources. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub RAG Chat</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a31;
+      --panel-2: #17213d;
+      --text: #e6ebff;
+      --muted: #9dacd8;
+      --accent: #7aa2ff;
+      --accent-2: #4f7dff;
+      --danger: #ff7b9c;
+      --border: #2a3766;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(160deg, #0a0f1d 0%, #101a35 100%);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .app {
+      width: min(980px, 100%);
+      background: rgba(12, 19, 39, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+    .header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+    .chat {
+      height: min(60vh, 620px);
+      overflow: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(18, 26, 49, 0.72), rgba(14, 22, 45, 0.9));
+    }
+    .msg {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      max-width: 80%;
+      background: rgba(79, 125, 255, 0.16);
+      border-color: rgba(122, 162, 255, 0.35);
+    }
+    .msg.bot {
+      align-self: flex-start;
+      max-width: 90%;
+      background: rgba(23, 33, 61, 0.85);
+    }
+    .sources {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sources a {
+      color: #a9c3ff;
+      text-decoration: none;
+    }
+    .sources a:hover { text-decoration: underline; }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 70px;
+      resize: vertical;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f1730;
+      color: var(--text);
+      padding: 12px;
+      font: inherit;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.18);
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .03s ease, background .2s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .send { background: var(--accent); color: #051030; }
+    .send:hover { background: var(--accent-2); color: white; }
+    .clear { background: #293760; color: #dfe7ff; }
+    .clear:hover { background: #34457a; }
+
+    .error { color: var(--danger); font-size: 12px; min-height: 18px; margin: 6px 14px 0; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1 class="title">GitHub RAG Chat</h1>
+      <span class="status" id="healthStatus">Checking health...</span>
+    </header>
+
+    <section id="chat" class="chat" aria-live="polite"></section>
+    <p id="error" class="error"></p>
+
+    <section class="composer">
+      <textarea id="messageInput" placeholder="Ask a question about your indexed repositories..."></textarea>
+      <div class="actions">
+        <button class="send" id="sendBtn" type="button">Send</button>
+        <button class="clear" id="clearBtn" type="button">Clear</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const chatEl = document.getElementById("chat");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const errorEl = document.getElementById("error");
+    const healthStatusEl = document.getElementById("healthStatus");
+
+    function addMessage(text, role, sources = []) {
+      const wrapper = document.createElement("article");
+      wrapper.className = `msg ${role}`;
+      wrapper.textContent = text;
+
+      if (Array.isArray(sources) && sources.length > 0 && role === "bot") {
+        const src = document.createElement("div");
+        src.className = "sources";
+        src.innerHTML = "<strong>Sources:</strong> " + sources
+          .map(s => `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${s.repo}</a>`)
+          .join(" • ");
+        wrapper.appendChild(src);
+      }
+
+      chatEl.appendChild(wrapper);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function setLoading(isLoading) {
+      sendBtn.disabled = isLoading;
+      sendBtn.textContent = isLoading ? "Sending..." : "Send";
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch("/health");
+        const data = await res.json();
+        healthStatusEl.textContent = `API: ${data.status}`;
+      } catch {
+        healthStatusEl.textContent = "API: unreachable";
+      }
+    }
+
+    async function sendMessage() {
+      const message = messageInput.value.trim();
+      errorEl.textContent = "";
+
+      if (!message) {
+        errorEl.textContent = "Please type a message.";
+        return;
+      }
+
+      addMessage(message, "user");
+      messageInput.value = "";
+      setLoading(true);
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.answer || `Request failed with status ${res.status}`);
+        }
+
+        addMessage(data.answer || "No answer returned.", "bot", data.sources || []);
+      } catch (err) {
+        addMessage("Sorry — the request failed. Please try again.", "bot");
+        errorEl.textContent = err?.message || "Unknown error.";
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    clearBtn.addEventListener("click", () => {
+      chatEl.innerHTML = "";
+      errorEl.textContent = "";
+      messageInput.focus();
+    });
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    addMessage("Hi! Ask anything about the repositories you indexed.", "bot");
+    checkHealth();
+  </script>
+</body>
+</html>

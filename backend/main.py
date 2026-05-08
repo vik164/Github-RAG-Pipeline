@@ -1,21 +1,10 @@
-"""
-FastAPI app for the GitHub RAG service (local; deployment in phase 3).
+"""FastAPI application entry point: routes for chat, health checks, and UI serving."""
 
-Run locally:
-  uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-- http://localhost:8000 — Chat UI
-- http://localhost:8000/docs — Swagger UI
-- http://localhost:8000/health — Service health (Milvus, OpenAI)
-
-Serverless (Vercel): rag (and pymilvus) are lazy-loaded so the function can start even if
-pymilvus is large or fails to load; /health and /chat then return a clear error instead of crashing.
-"""
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import config
+from backend import config
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
@@ -35,7 +24,7 @@ def _get_rag():
     if _rag_error is not None:
         raise _rag_error
     try:
-        import rag as _rag_module
+        from backend import rag as _rag_module
         _rag = _rag_module
         return _rag
     except Exception as e:
