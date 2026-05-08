@@ -1,3 +1,5 @@
+"""Data ingestion pipeline: fetches GitHub blobs, chunks content, and indexes into Milvus."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,9 +18,9 @@ from openai import OpenAI
 from pymilvus import DataType, MilvusClient
 from tqdm import tqdm
 
-import config
-from repo_filters import is_text_file, should_skip_path
-from sparse_utils import text_to_sparse_vector
+from backend import config
+from backend.repo_filters import is_text_file, should_skip_path
+from backend.sparse_utils import text_to_sparse_vector
 
 # Defaults (override via env or args)
 COLLECTION_NAME = "github_rag"
