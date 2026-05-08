@@ -1,22 +1,34 @@
-"""
-RAG: hybrid search (dense + sparse), rerank to top-5, then answer with OpenAI using only retrieved context.
-"""
+"""Core RAG logic: implements hybrid search (dense+sparse) and context-aware LLM answering."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from openai import OpenAI
-from pymilvus import MilvusClient
 
-import config
-from load_data import (
-    COLLECTION_NAME,
-    COLLECTION_NAME_SPARSE,
-    EMBEDDING_MODEL,
-    embed_texts,
-)
-from sparse_utils import text_to_sparse_vector
+from backend import config
+from backend.sparse_utils import text_to_sparse_vector
+
+try:
+    from backend.load_data import (
+        COLLECTION_NAME,
+        COLLECTION_NAME_SPARSE,
+        EMBEDDING_MODEL,
+        embed_texts,
+    )
+    _LOAD_DATA_IMPORT_ERROR: Exception | None = None
+except Exception as e:
+    # Allow importing this module in minimal test environments where heavy ingestion deps are absent.
+    COLLECTION_NAME = "github_rag"
+    COLLECTION_NAME_SPARSE = "github_rag_sparse"
+    EMBEDDING_MODEL = "text-embedding-3-small"
+    _LOAD_DATA_IMPORT_ERROR = e
+
+    def embed_texts(*args, **kwargs):  # type: ignore[no-redef]
+        raise RuntimeError(
+            "Embedding utilities are unavailable because backend.load_data dependencies could not be imported."
+        ) from _LOAD_DATA_IMPORT_ERROR
 
 logger = logging.getLogger(__name__)
 
