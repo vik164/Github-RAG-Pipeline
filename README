@@ -1,0 +1,79 @@
+# GitHub RAG Pipeline
+<!-- Project overview and usage guide for setting up ingestion, API, and chat UI. -->
+
+A Retrieval-Augmented Generation (RAG) project that:
+- ingests GitHub repository files into Milvus (dense + optional sparse index),
+- retrieves relevant chunks for a query,
+- answers using OpenAI based only on retrieved context,
+- serves a browser chat UI via FastAPI.
+
+## Project Structure
+- `backend/main.py` — FastAPI app (`/`, `/chat`, `/health`, `/api`)
+- `backend/load_data.py` — ingestion pipeline (GitHub → chunking → embeddings → Milvus)
+- `backend/rag.py` — retrieval + rerank + answer generation
+- `backend/config.py` — environment variable loading/validation
+- `backend/repo_explore.py` — discover repos by topic
+- `backend/repo_filter.py` — keep API-accessible repos only
+- `backend/repo_filters.py` — file/path filtering rules
+- `backend/sparse_utils.py` — sparse vector utility
+- `templates/index.html` — chatbox UI
+- `tests/tests.py` — unit and API tests with mocks
+
+## Requirements
+- Python 3.10+
+- Milvus or Zilliz endpoint
+- OpenAI API key
+- (Optional) GitHub token for higher API limits
+
+Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Environment Setup
+Create `.env` in project root:
+
+```env
+OPENAI_API_KEY=your_openai_key
+MILVUS_URI=your_milvus_uri
+MILVUS_TOKEN=your_milvus_token
+GITHUB_TOKEN=optional_github_token
+```
+
+## Ingest Repositories
+You can use `repositories.txt` or pass repos directly.
+
+Using file:
+```bash
+python -m backend.load_data --repos-file repositories.txt
+```
+
+With direct repos:
+```bash
+python -m backend.load_data --repos owner/repo another/repo
+```
+
+Optional flags:
+- `--chunk-strategy file|function|markdown|lines`
+- `--max-files-per-repo 200`
+- `--collection github_rag`
+
+## Run API + Chat UI
+```bash
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Open:
+- `http://localhost:8000/` — chat UI
+- `http://localhost:8000/docs` — API docs
+- `http://localhost:8000/health` — service health
+
+## Run Tests
+```bash
+python -m pytest tests/tests.py -v
+```
+
+## Notes
+- The API lazy-loads RAG dependencies to avoid startup crashes in constrained/serverless runtimes.
+- Chat responses are constrained to retrieved context from indexed repositories.
+- Source URLs are returned as full GitHub repo links.

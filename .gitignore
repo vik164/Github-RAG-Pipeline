@@ -1,0 +1,19 @@
+# Git ignore rules: local secrets, envs, caches, editor files, and generated local docs.
+.env
+.venv/
+venv/
+env/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local detailed explanation file (generated for onboarding/reference)
+DETAILED_CODE_EXPLANATION.txt
